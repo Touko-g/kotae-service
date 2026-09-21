@@ -1,4 +1,4 @@
-﻿from rest_framework.response import Response
+from rest_framework.response import Response
 from .serializers import ArticleSerializer, TagSerializer, LikeSerialize, CommentSerializer, SearchSerializer, \
     NoticeSerializer, PhotoSerializer
 from .models import Article, Tag, Like, Comment, Search, Notice, Photo
@@ -101,10 +101,10 @@ class TagViewSet(PublicQuerySetMixin, viewsets.ModelViewSet):
         return Response(status=status.HTTP_403_FORBIDDEN, data="没有权限")
 
 
-class LikeViewSet(viewsets.ModelViewSet):
+class LikeViewSet(PublicQuerySetMixin, viewsets.ModelViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerialize
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsEditBySelfPermission]
+    permission_classes = [permissions.IsAuthenticated, IsEditBySelfPermission]
     filterset_class = LikeFilter
 
     def perform_create(self, serializer):
@@ -145,7 +145,8 @@ class CommentViewSet(PublicQuerySetMixin, viewsets.ModelViewSet):
             Notice.objects.create(user=request.user, recipient=parent.user, verb='回复', target=article,
                                   content=content, reply_content=parent.content)
         if request.user != article.user and serializer.data.get('reply') is None:
-            Notice.objects.create(user=request.user, recipient=article.user, verb='评论', target=article, content=content)
+            Notice.objects.create(user=request.user, recipient=article.user, verb='评论', target=article,
+                                  content=content)
         article.comments += 1
         article.save()
 
