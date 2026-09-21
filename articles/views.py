@@ -101,11 +101,20 @@ class TagViewSet(PublicQuerySetMixin, viewsets.ModelViewSet):
         return Response(status=status.HTTP_403_FORBIDDEN, data="没有权限")
 
 
-class LikeViewSet(PublicQuerySetMixin, viewsets.ModelViewSet):
+class LikeViewSet(viewsets.ModelViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerialize
     permission_classes = [permissions.IsAuthenticated, IsEditBySelfPermission]
     filterset_class = LikeFilter
+
+    def get_queryset(self, *args, **kwargs):
+        # 普通用户只能看到自己的点赞，管理员可查看全部，避免越权枚举全站点赞记录
+        # 注意：PublicQuerySetMixin 只按 public 过滤，对 Like 是空操作，无法防越权，故此处按 user 隔离
+        qs = super().get_queryset(*args, **kwargs)
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+        return qs.filter(user=user)
 
     def perform_create(self, serializer):
         request = self.request
