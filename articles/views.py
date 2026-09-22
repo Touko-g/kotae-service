@@ -38,7 +38,7 @@ def get_position(ip):
 class ArticleList(PublicQuerySetMixin, generics.ListAPIView):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filterset_class = ArticleFilter
 
 
