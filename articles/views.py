@@ -38,7 +38,7 @@ def get_position(ip):
 class ArticleList(PublicQuerySetMixin, generics.ListAPIView):
     queryset = Article.objects.all()
     serializer_class = ArticleSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
     filterset_class = ArticleFilter
 
 
@@ -109,7 +109,7 @@ class LikeViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Retriev
                   mixins.DestroyModelMixin, viewsets.GenericViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerialize
-    permission_classes = [permissions.IsAuthenticated, IsEditBySelfPermission]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsEditBySelfPermission]
     filterset_class = LikeFilter
 
     def get_queryset(self, *args, **kwargs):
