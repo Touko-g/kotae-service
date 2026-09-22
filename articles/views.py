@@ -109,7 +109,7 @@ class LikeViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.Retriev
                   mixins.DestroyModelMixin, viewsets.GenericViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerialize
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsEditBySelfPermission]
+    permission_classes = [permissions.IsAuthenticated, IsEditBySelfPermission]
     filterset_class = LikeFilter
 
     def get_queryset(self, *args, **kwargs):
