@@ -4,7 +4,7 @@
 # @Author : WangHaoRan
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from sts.sts import Sts
 
@@ -15,14 +15,14 @@ load_dotenv()
 
 
 @api_view(["GET"])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])  # 临时密钥不再对匿名开放，避免被任意人拖取冒库
 def cos_key(request):
     config = {
         'url': 'https://sts.tencentcloudapi.com/',
         # 域名，非必须，默认为 sts.tencentcloudapi.com
         'domain': 'sts.tencentcloudapi.com',
         # 临时密钥有效时长，单位是秒
-        'duration_seconds': 7200,
+        'duration_seconds': 1800,
         'secret_id': os.getenv("secret_id"),
         # 固定密钥
         'secret_key': os.getenv("secret_key"),

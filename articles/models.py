@@ -1,4 +1,4 @@
-﻿from django.db import models
+from django.db import models
 from django.conf import settings
 
 User = settings.AUTH_USER_MODEL  # auth.User
@@ -32,6 +32,10 @@ class Article(AbstractBaseModel):
 class Like(AbstractBaseModel):
     article = models.ForeignKey(Article, on_delete=models.DO_NOTHING)
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+
+    class Meta:
+        # 同一用户对同一文章只能点赞一次，数据库层兜底并发重复写入
+        unique_together = ('user', 'article')
 
 
 class Comment(AbstractBaseModel):

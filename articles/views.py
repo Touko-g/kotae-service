@@ -1,8 +1,12 @@
 from rest_framework.response import Response
+from django.db import transaction
+from django.db.models import F
+from django.db.models.functions import Greatest
+from django.db.utils import IntegrityError
 from .serializers import ArticleSerializer, TagSerializer, LikeSerialize, CommentSerializer, SearchSerializer, \
     NoticeSerializer, PhotoSerializer
 from .models import Article, Tag, Like, Comment, Search, Notice, Photo
-from rest_framework import generics, permissions, status, viewsets, serializers
+from rest_framework import generics, permissions, status, viewsets, serializers, mixins
 from rest_framework.views import APIView
 from api.mixins import StaffEditorPermissionMixin, UserQuerySetMixin, PublicQuerySetMixin
 from api.permissons import IsEditBySelfPermission
@@ -101,38 +105,42 @@ class TagViewSet(PublicQuerySetMixin, viewsets.ModelViewSet):
         return Response(status=status.HTTP_403_FORBIDDEN, data="没有权限")
 
 
-class LikeViewSet(viewsets.ModelViewSet):
+class LikeViewSet(mixins.CreateModelMixin, mixins.ListModelMixin, mixins.RetrieveModelMixin,
+                  mixins.DestroyModelMixin, viewsets.GenericViewSet):
     queryset = Like.objects.all()
     serializer_class = LikeSerialize
-    permission_classes = [permissions.IsAuthenticated, IsEditBySelfPermission]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsEditBySelfPermission]
     filterset_class = LikeFilter
 
     def get_queryset(self, *args, **kwargs):
-        # 普通用户只能看到自己的点赞，管理员可查看全部，避免越权枚举全站点赞记录
-        # 注意：PublicQuerySetMixin 只按 public 过滤，对 Like 是空操作，无法防越权，故此处按 user 隔离
+        # 细粒度可见性：管理员全量；带 article 参数时返回该文章的点赞人列表；
+        # 否则只返回本人点赞，禁止无参全表拉取
         qs = super().get_queryset(*args, **kwargs)
         user = self.request.user
         if user.is_superuser:
             return qs
+        article_id = self.request.query_params.get('article')
+        if article_id:
+            return qs.filter(article_id=article_id)
         return qs.filter(user=user)
 
     def perform_create(self, serializer):
-        request = self.request
-        if Like.objects.filter(user=request.user, article=request.data['article']).exists():
-            raise serializers.ValidationError('一次就够了')
-        serializer.save(user=request.user)
         article = serializer.validated_data['article']
-        article.likes += 1
-        article.save()
-
-    def perform_update(self, serializer):
-        raise serializers.ValidationError('不允许修改')
+        try:
+            with transaction.atomic():
+                serializer.save(user=self.request.user)
+                # 原子更新计数，避免并发下 likes 与真实点赞数漂移
+                Article.objects.filter(pk=article.pk).update(likes=F('likes') + 1)
+        except IntegrityError:
+            # 并发重复点赞被数据库唯一约束拦截
+            raise serializers.ValidationError('一次就够了')
 
     def perform_destroy(self, instance):
-        article = instance.article
-        article.likes -= 1
-        article.save()
-        instance.delete()
+        with transaction.atomic():
+            instance.delete()
+            # Greatest 防止计数减为负数
+            Article.objects.filter(pk=instance.article_id).update(
+                likes=Greatest(F('likes') - 1, 0))
 
 
 class CommentViewSet(PublicQuerySetMixin, viewsets.ModelViewSet):

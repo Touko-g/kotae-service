@@ -1,5 +1,6 @@
-﻿from random import choice
+from random import choice
 
+from django.db import transaction
 from rest_framework import viewsets, permissions, generics, status, mixins
 from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
@@ -38,20 +39,22 @@ class UserRestPswViewSet(GenericAPIView):
     def put(self, request, *args, **kwargs):
         serializer = serializers.UserResetPswSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
-            email = request.data.get('email')
-            password = request.data.get('password')
-            code = request.data.get('code')
+            email = serializer.validated_data['email']
+            password = serializer.validated_data['password']
+            code = serializer.validated_data['code']
 
-            users = models.User.objects.filter(email=email)
-            user: models.User = users[0] if users else None
-            user.set_password(password)
-            user.save()
+            with transaction.atomic():
+                user = models.User.objects.filter(email=email).first()
+                # 验证码必须属于该邮箱且未被使用，避免错花他人验证码
+                code_record = models.ResetCode.objects.filter(
+                    email=email, code=code, use=False).order_by('-add_time').first()
+                if user is None or code_record is None:
+                    return Response('验证码无效或已过期', status=status.HTTP_400_BAD_REQUEST)
 
-            codes = models.ResetCode.objects.filter(code=code)
-            code: models.ResetCode = codes[0] if codes else None
-            print('=========', code, '=========')
-            code.use = True
-            code.save()
+                user.set_password(password)
+                user.save()
+                code_record.use = True
+                code_record.save()
             return Response('密码已重置')
         return Response('密码重置失败')
 
@@ -68,8 +71,9 @@ class UpdateProfileView(generics.UpdateAPIView, generics.RetrieveAPIView):
     serializer_class = serializers.UserUpdateProfileSerializer
 
     def get(self, request, *args, **kwargs):
-        # if request.user.id != kwargs.get('pk'):
-        #     return Response('没有权限', status=401)
+        # 仅允许本人或管理员查看，防止越权获取他人邮箱等信息
+        if request.user.id != kwargs.get('pk') and not (request.user.is_staff or request.user.is_superuser):
+            return Response('没有权限', status=403)
         user = self.get_object()
         return Response({
             "id": user.id,
@@ -140,6 +144,11 @@ class ResetCodeViewSet(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)  # 这一步相当于发送前验证
         # 从 validated_data 中获取 mobile
         email = serializer.validated_data["email"]
+        # 邮箱未注册时返回与成功相同的响应，避免被用来枚举已注册账号
+        if not models.User.objects.filter(email=email).exists():
+            return Response({
+                'detail': 'Verification code has been sent'
+            }, status=200)
         # 随机生成code
         code = get_random_code(6)
 

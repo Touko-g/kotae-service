@@ -1,4 +1,4 @@
-﻿import re
+import re
 from datetime import datetime, timedelta
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
@@ -232,10 +232,7 @@ class ResetCodeSerializer(serializers.Serializer):
         """
         if not re.match(EMAIL_REGEX, email):
             raise serializers.ValidationError('邮箱格式错误')
-        # 邮箱是否注册
-        if User.objects.filter(email=email).count() == 0:
-            raise serializers.ValidationError('该邮箱未注册')
-        # 验证邮箱号码合法
+        # 注意：不在此处校验「邮箱是否已注册」，避免被用来枚举账号；由视图统一处理
 
         # 验证码发送频率
         one_minute_age = datetime.now() - timedelta(hours=0, minutes=2, seconds=0)

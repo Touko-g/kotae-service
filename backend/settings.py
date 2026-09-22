@@ -23,12 +23,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-zmd8(*5%fnhhu@dhe#6qa=a#lkr&$n8^&kh^9s^ack__y^2nr+'
+# 优先从环境变量读取；未配置时回退到原值，避免存量 JWT 失效
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-zmd8(*5%fnhhu@dhe#6qa=a#lkr&$n8^&kh^9s^ack__y^2nr+')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# 生产环境请在 .env 中设置 DJANGO_DEBUG=False
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['127.0.0.1','kotae.cn','www.kotae.cn','https://kotae.cn','https://www.kotae.cn']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'kotae.cn', 'www.kotae.cn']
 
 CSRF_TRUSTED_ORIGINS = [
     'https://kotae.cn',
@@ -60,7 +62,6 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     "corsheaders.middleware.CorsMiddleware",
-    "django.middleware.common.CommonMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',

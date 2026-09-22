@@ -9,6 +9,12 @@ class ChatRoomConsumer(WebsocketConsumer):
         self.room_name = self.scope['url_route']['kwargs']['room_name']
         self.room_group_name = 'chat_%s' % self.room_name
 
+        # 必须是已登录用户，身份以服务端 session 为准，不信任客户端传参
+        user = self.scope.get('user')
+        if not user or not user.is_authenticated:
+            self.close(code=4001)
+            return
+
         async_to_sync(self.channel_layer.group_add)(
             self.room_group_name,
             self.channel_name
@@ -33,16 +39,20 @@ class ChatRoomConsumer(WebsocketConsumer):
                     'error': 'type is Required'
                 }
             )
+            return
+        # 锁定当前连接对应的登录用户，join/leave/message 均以此为准
+        user = self.scope.get('user')
+        if not user or not user.is_authenticated:
+            return
         if type_id == 'join':
-            user_id = text_data_json['user']
-            obj = Online.objects.get(user_id=user_id)
+            obj, _ = Online.objects.get_or_create(user=user)
             obj.online = True
             obj.save()
             async_to_sync(self.channel_layer.group_send)(
                 self.room_group_name,
                 {
                     'type': 'chatroom_join',
-                    'user': obj.user.username,
+                    'user': user.username,
                     'status': 'join'
                 }
             )
@@ -50,35 +60,32 @@ class ChatRoomConsumer(WebsocketConsumer):
                 self.room_group_name,
                 {
                     'type': 'chatroom_online',
-                    'online': len(Online.objects.filter(online=True))
+                    'online': Online.objects.filter(online=True).count()
                 }
             )
         elif type_id == 'message':
-            message = text_data_json['message']
-            username = text_data_json['username']
-            avatar = text_data_json['avatar']
-            obj = Online.objects.get(user__username=username)
-            Chat.objects.create(user=obj.user, message=message)
+            message = text_data_json.get('message', '')
+            # username/avatar 不再信任客户端传值，一律取当前登录用户
+            Chat.objects.create(user=user, message=message)
 
             async_to_sync(self.channel_layer.group_send)(
                 self.room_group_name,
                 {
                     'type': 'chatroom_message',
                     'message': message,
-                    'username': username,
-                    'avatar': avatar
+                    'username': user.username,
+                    'avatar': user.avatar
                 }
             )
         elif type_id == 'leave':
-            user_id = text_data_json['user']
-            obj = Online.objects.get(user_id=user_id)
+            obj, _ = Online.objects.get_or_create(user=user)
             obj.online = False
             obj.save()
             async_to_sync(self.channel_layer.group_send)(
                 self.room_group_name,
                 {
                     'type': 'chatroom_leave',
-                    'user': obj.user.username,
+                    'user': user.username,
                     'status': 'leave'
                 }
             )
@@ -86,7 +93,7 @@ class ChatRoomConsumer(WebsocketConsumer):
                 self.room_group_name,
                 {
                     'type': 'chatroom_online',
-                    'online': len(Online.objects.filter(online=True))
+                    'online': Online.objects.filter(online=True).count()
                 }
             )
         else:
