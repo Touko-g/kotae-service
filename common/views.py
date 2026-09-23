@@ -71,17 +71,17 @@ class UpdateProfileView(generics.UpdateAPIView, generics.RetrieveAPIView):
     serializer_class = serializers.UserUpdateProfileSerializer
 
     def get(self, request, *args, **kwargs):
-        # 仅允许本人或管理员查看，防止越权获取他人邮箱等信息
-        if request.user.id != kwargs.get('pk') and not (request.user.is_staff or request.user.is_superuser):
-            return Response('没有权限', status=403)
+        # 允许登录用户互相查看资料；邮箱仅对本人或管理员可见，防止越权泄露
         user = self.get_object()
-        return Response({
+        data = {
             "id": user.id,
             "username": user.username,
-            "email": user.email,
             "about": user.about,
-            "avatar": user.avatar
-        }, status=200)
+            "avatar": user.avatar,
+        }
+        if user.id == request.user.id or request.user.is_staff or request.user.is_superuser:
+            data["email"] = user.email
+        return Response(data, status=200)
 
 
 class LogoutView(APIView):
