@@ -55,7 +55,8 @@ INSTALLED_APPS = [
     'drf_api_logger',
     'common',
     'articles',
-    'chat'
+    'chat',
+    'wishlist'
 ]
 
 MIDDLEWARE = [
