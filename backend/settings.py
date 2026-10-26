@@ -56,7 +56,8 @@ INSTALLED_APPS = [
     'common',
     'articles',
     'chat',
-    'wishlist'
+    'wishlist',
+    'ai'
 ]
 
 MIDDLEWARE = [
@@ -156,7 +157,11 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
     "DEFAULT_PAGINATION_CLASS": "api.custompaginations.RegularPageNumberPagination",
-    "PAGE_SIZE": 10
+    "PAGE_SIZE": 10,
+    # AI 接口按登录用户限流（scope 见 ai/throttling.py）
+    "DEFAULT_THROTTLE_RATES": {
+        "ai": os.getenv('AI_THROTTLE_RATE', '20/min'),
+    },
 }
 
 SIMPLE_JWT = {
@@ -204,5 +209,21 @@ DRF_API_LOGGER_DATABASE = True
 DRF_API_LOGGER_EXCLUDE_KEYS = ['password', 'token', 'access', 'refresh', 'refresh_token','sessionToken','tmpSecretId','tmpSecretKey','requestId']
 # 只记录写操作的请求，跳过 GET 的大量列表/详情响应，避免日志膨胀
 DRF_API_LOGGER_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
-# 跳过 API 文档等高噪音接口
-DRF_API_LOGGER_SKIP_URL_NAME = ['schema-json', 'schema-swagger-ui', 'schema-redoc']
+# 跳过 API 文档等高噪音接口；AI 接口整段对话都要落库，既膨胀又会留存用户内容
+DRF_API_LOGGER_SKIP_URL_NAME = [
+    'schema-json', 'schema-swagger-ui', 'schema-redoc',
+    'ai-chat', 'ai-chat-stream', 'ai-credential',
+]
+
+# ---------------------------------------------------------------------------
+# AI 能力（每个用户自带 API Key，密钥加密存在 ai_ai_credential 表里）
+# ---------------------------------------------------------------------------
+# 用户没改「接口地址」时用的默认上游（OpenAI 兼容模式）
+AI_DEFAULT_BASE_URL = os.getenv(
+    'AI_DEFAULT_BASE_URL', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+AI_DEFAULT_MODEL = os.getenv('AI_DEFAULT_MODEL', 'qwen3.8-flash')
+AI_TEMPERATURE = float(os.getenv('AI_TEMPERATURE', '0.7'))
+AI_MAX_TOKENS = int(os.getenv('AI_MAX_TOKENS', '2048'))
+# 连接超时 / 读取超时（秒）。流式时读取超时指「两个分片之间的最长间隔」
+AI_CONNECT_TIMEOUT = int(os.getenv('AI_CONNECT_TIMEOUT', '10'))
+AI_TIMEOUT = int(os.getenv('AI_TIMEOUT', '120'))

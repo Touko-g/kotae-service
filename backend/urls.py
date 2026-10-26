@@ -22,4 +22,5 @@ urlpatterns = [
     path('api/', include('common.urls')),
     path('api/', include('articles.urls')),
     path('api/', include('wishlist.urls')),
+    path('api/', include('ai.urls')),
 ]
