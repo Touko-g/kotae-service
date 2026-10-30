@@ -13,7 +13,7 @@ from api.permissons import IsEditBySelfPermission
 from . import serializers
 from . import models
 from .filters import UserFilter
-from api.utlis import send_email_mes, get_random_code
+from api.utlis import get_random_code, send_verification_code_email
 
 
 # Create your views here.
@@ -122,7 +122,7 @@ class VerifyCodeViewSet(generics.CreateAPIView):
         code = get_random_code(6)
 
         try:
-            send_email_mes(f"注册验证码", email, code)
+            send_verification_code_email(email, code, scene='register')
             code_record = models.VerifyCode(code=code, email=email)
             code_record.save()
             return Response({
@@ -153,7 +153,7 @@ class ResetCodeViewSet(generics.CreateAPIView):
         code = get_random_code(6)
 
         try:
-            send_email_mes(f"重置密码验证码", email, code)
+            send_verification_code_email(email, code, scene='reset')
             code_record = models.ResetCode(code=code, email=email)
             code_record.save()
             return Response({

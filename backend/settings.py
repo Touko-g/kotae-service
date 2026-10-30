@@ -184,6 +184,18 @@ EMAIL_USE_SSL = True
 # 此处的EMAIL_HOST_PASSWORD是用QQ邮箱授权码登录
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
+# 发件人显示名。QQ 邮箱要求 From 地址与登录账号一致，所以只加显示名不改地址
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", f"Kotae <{EMAIL_HOST_USER}>")
+
+# 邮件模板里用到的站点信息（页脚链接、logo）
+SITE_URL = os.getenv("SITE_URL", "https://kotae.cn")
+# 邮件客户端不加载本地静态文件，logo 必须是公网可访问的绝对地址；
+# 换 bucket / 换 logo 时改这里或设环境变量，不用动模板
+EMAIL_LOGO_URL = os.getenv(
+    "EMAIL_LOGO_URL",
+    "https://chen-1302611521.cos.ap-nanjing.myqcloud.com/logo.png",
+)
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
